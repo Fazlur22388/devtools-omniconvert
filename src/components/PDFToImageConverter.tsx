@@ -1,424 +1,104 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import confetti from 'canvas-confetti';
-import FileDropzone from '@/components/FileDropzone';
-import { 
-  parsePdfDocument, 
-  renderPdfPage, 
-  downloadPagesAsZip, 
-  downloadSinglePage,
-  RenderedPage 
-} from '@/lib/pdf-utils';
-import { 
-  Sliders, 
-  Download, 
-  CheckSquare, 
-  Square, 
-  Maximize2, 
-  Sparkles, 
-  Loader2, 
-  RefreshCw, 
-  FileCheck, 
-  Layers, 
-  X,
-  FileImage,
-  CheckCircle2
-} from 'lucide-react';
+import { useEffect, useRef, useState } from "react";
+import type { PDFDocumentProxy } from "pdfjs-dist";
+import { AlertCircle, ArrowRight, Check, CheckCheck, Download, FileText, Image, Loader2, LockKeyhole, Maximize2, RefreshCw, X } from "lucide-react";
+import FileDropzone from "./FileDropzone";
+import { downloadPagesAsZip, downloadSinglePage, parsePdfDocument, renderPdfPage, type RenderedPage } from "@/lib/pdf-utils";
 
-export default function PDFToImageConverter() {
+type Format = "image/jpeg" | "image/png" | "image/webp";
+const FORMATS: { value: Format; label: string; extension: string }[] = [{ value: "image/jpeg", label: "JPEG", extension: "jpg" }, { value: "image/png", label: "PNG", extension: "png" }, { value: "image/webp", label: "WebP", extension: "webp" }];
+
+export default function PDFToImageConverter({ embedded = false, initialFormat = "image/jpeg" }: { embedded?: boolean; initialFormat?: Format }) {
   const [file, setFile] = useState<File | null>(null);
-  const [pdfDoc, setPdfDoc] = useState<any>(null);
-  const [numPages, setNumPages] = useState<number>(0);
-  
-  // Settings
-  const [format, setFormat] = useState<'image/jpeg' | 'image/png' | 'image/webp'>('image/jpeg');
-  const [scale, setScale] = useState<number>(2); // 1 = 72dpi, 2 = 150dpi, 3 = 300dpi
-  const [quality, setQuality] = useState<number>(0.92); // 10% to 100%
+  const [doc, setDoc] = useState<PDFDocumentProxy | null>(null);
+  const [format, setFormat] = useState<Format>(initialFormat);
+  const [resultFormat, setResultFormat] = useState<Format>(initialFormat);
+  const [scale, setScale] = useState(2);
+  const [quality, setQuality] = useState(0.9);
+  const [pages, setPages] = useState<RenderedPage[]>([]);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [processing, setProcessing] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const [dirty, setDirty] = useState(false);
+  const [error, setError] = useState("");
+  const [preview, setPreview] = useState<RenderedPage | null>(null);
+  const dialog = useRef<HTMLDialogElement>(null);
+  const documentRef = useRef<PDFDocumentProxy | null>(null);
+  const runId = useRef(0);
 
-  // Rendering state
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const [progressMsg, setProgressMsg] = useState<string>('');
-  const [renderedPages, setRenderedPages] = useState<RenderedPage[]>([]);
-  const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set());
+  useEffect(() => () => { runId.current++; void documentRef.current?.destroy(); }, []);
+  useEffect(() => { if (preview) dialog.current?.showModal(); else dialog.current?.close(); }, [preview]);
 
-  // Lightbox Modal state
-  const [activePreviewPage, setActivePreviewPage] = useState<RenderedPage | null>(null);
-
-  // 1. File Upload & Processing Handler
-  const handleFileSelect = async (selectedFile: File) => {
-    setFile(selectedFile);
-    setRenderedPages([]);
-    setSelectedPages(new Set());
-    setIsProcessing(true);
-    setProgressMsg('Analyzing PDF document structure...');
-
+  async function convert(pdf: PDFDocumentProxy, task: number) {
+    setProcessing(true);
+    setPages([]);
+    setError("");
+    setProgress({ current: 0, total: pdf.numPages });
+    const rendered: RenderedPage[] = [];
     try {
-      const { pdfDoc: parsedDoc, numPages: count } = await parsePdfDocument(selectedFile);
-      setPdfDoc(parsedDoc);
-      setNumPages(count);
-
-      // Render all pages
-      await processAllPages(parsedDoc, count, format, scale, quality);
-    } catch (err: any) {
-      console.error(err);
-      alert('Error parsing PDF file: ' + (err.message || 'Unknown error'));
-      setIsProcessing(false);
-    }
-  };
-
-  // 2. Render PDF pages into Canvas & JPEG images
-  const processAllPages = async (
-    doc: any, 
-    totalPages: number, 
-    imgFormat: 'image/jpeg' | 'image/png' | 'image/webp', 
-    imgScale: number, 
-    imgQuality: number
-  ) => {
-    setIsProcessing(true);
-    const pages: RenderedPage[] = [];
-    const selected = new Set<number>();
-
-    for (let i = 1; i <= totalPages; i++) {
-      setProgressMsg(`Rendering Page ${i} of ${totalPages}...`);
-      try {
-        const page = await renderPdfPage(doc, i, {
-          scale: imgScale,
-          format: imgFormat,
-          quality: imgQuality
-        });
-        pages.push(page);
-        selected.add(i);
-      } catch (err) {
-        console.error(`Failed rendering page ${i}`, err);
+      for (let number = 1; number <= pdf.numPages; number++) {
+        const page = await renderPdfPage(pdf, number, { format, scale, quality });
+        if (task !== runId.current) return;
+        rendered.push(page);
+        setProgress({ current: number, total: pdf.numPages });
       }
-    }
+      setPages(rendered);
+      setSelected(new Set(rendered.map((page) => page.pageNumber)));
+      setResultFormat(format);
+      setDirty(false);
+    } catch (reason) { if (task === runId.current) setError(reason instanceof Error ? reason.message : "This PDF could not be converted. Try another file."); }
+    finally { if (task === runId.current) setProcessing(false); }
+  }
 
-    setRenderedPages(pages);
-    setSelectedPages(selected);
-    setIsProcessing(false);
-    setProgressMsg('');
-
-    // Trigger celebration confetti
+  async function loadFile(nextFile: File) {
+    const task = ++runId.current;
+    setFile(nextFile);
+    setDoc(null);
+    setPages([]);
+    setError("");
+    setProcessing(true);
+    setProgress({ current: 0, total: 0 });
     try {
-      confetti({
-        particleCount: 50,
-        spread: 60,
-        origin: { y: 0.7 }
-      });
-    } catch (e) {
-      // ignore
+      await documentRef.current?.destroy();
+      documentRef.current = null;
+      const parsed = await parsePdfDocument(nextFile);
+      if (task !== runId.current) { await parsed.pdfDoc.destroy(); return; }
+      documentRef.current = parsed.pdfDoc;
+      setDoc(parsed.pdfDoc);
+      await convert(parsed.pdfDoc, task);
+    } catch (reason) {
+      if (task === runId.current) { setError(reason instanceof Error ? reason.message : "This PDF could not be opened. Choose an unencrypted PDF."); setProcessing(false); }
     }
-  };
+  }
 
-  // 3. Re-render when user changes resolution scale, format, or quality
-  const handleSettingsChange = (
-    newFormat: 'image/jpeg' | 'image/png' | 'image/webp',
-    newScale: number,
-    newQuality: number
-  ) => {
-    setFormat(newFormat);
-    setScale(newScale);
-    setQuality(newQuality);
-
-    if (pdfDoc && numPages > 0) {
-      processAllPages(pdfDoc, numPages, newFormat, newScale, newQuality);
-    }
-  };
-
-  // Selection Toggles
-  const toggleSelectPage = (pageNum: number) => {
-    const next = new Set(selectedPages);
-    if (next.has(pageNum)) {
-      next.delete(pageNum);
-    } else {
-      next.add(pageNum);
-    }
-    setSelectedPages(next);
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedPages.size === renderedPages.length) {
-      setSelectedPages(new Set());
-    } else {
-      const all = new Set(renderedPages.map(p => p.pageNumber));
-      setSelectedPages(all);
-    }
-  };
-
-  // ZIP Download Handler
-  const handleDownloadZip = async () => {
-    if (renderedPages.length === 0) return;
-    const pagesToDownload = renderedPages.filter(p => selectedPages.has(p.pageNumber));
-
-    if (pagesToDownload.length === 0) {
-      alert('Please select at least 1 page to download.');
-      return;
-    }
-
-    const ext = format === 'image/png' ? 'png' : format === 'image/webp' ? 'webp' : 'jpg';
-    const filename = file ? `${file.name.replace(/\.[^/.]+$/, '')}-images.zip` : 'pdf-converted-images.zip';
-
-    await downloadPagesAsZip(pagesToDownload, filename, ext);
-  };
-
-  const resetAll = () => {
-    setFile(null);
-    setPdfDoc(null);
-    setNumPages(0);
-    setRenderedPages([]);
-    setSelectedPages(new Set());
-    setIsProcessing(false);
-  };
-
-  return (
-    <div className="w-full space-y-8 animate-fade-in">
-      
-      {/* Tool Header Banner */}
-      <div className="glass-panel p-6 sm:p-8 bg-gradient-to-r from-indigo-900/30 via-purple-900/20 to-slate-900/40 relative overflow-hidden">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="badge badge-emerald">
-                <CheckCircle2 className="w-3.5 h-3.5" /> High DPI Support
-              </span>
-              <span className="badge badge-indigo">Browser Native Engine</span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-3">
-              <FileImage className="w-8 h-8 text-indigo-400" />
-              PDF to JPEG Image Converter
-            </h1>
-            <p className="text-gray-300 text-sm max-w-2xl leading-relaxed">
-              Convert every PDF page into crystal clear JPEG or PNG images. Adjust DPI resolution, set quality levels, select individual pages, and download everything as a ZIP archive.
-            </p>
-          </div>
-        </div>
+  function reset() { ++runId.current; void documentRef.current?.destroy(); documentRef.current = null; setDoc(null); setFile(null); setPages([]); setSelected(new Set()); setError(""); setDirty(false); setPreview(null); }
+  function toggle(number: number) { setSelected((previous) => { const next = new Set(previous); if (next.has(number)) next.delete(number); else next.add(number); return next; }); }
+  const extension = FORMATS.find((item) => item.value === resultFormat)!.extension;
+  async function downloadZip() {
+    if (!selected.size || downloading) return;
+    setDownloading(true);
+    try { await downloadPagesAsZip(pages.filter((page) => selected.has(page.pageNumber)), `${file?.name.replace(/\.pdf$/i, "") || "converted"}-images.zip`, extension); }
+    catch { setError("The ZIP download could not be created. Try downloading individual pages."); }
+    finally { setDownloading(false); }
+  }
+  const Heading = embedded ? "h2" : "h1";
+  return <div className={`pdf-tool ${embedded ? "is-embedded" : ""}`}>
+    {!embedded && <div className="converter-heading"><p className="eyebrow">PDF tools / {FORMATS.find((item) => item.value === initialFormat)?.label}</p><Heading>PDF to {FORMATS.find((item) => item.value === initialFormat)?.label}</Heading><p>Export PDF pages as images. Choose your format and resolution, preview each page, and download the ones you need.</p></div>}
+    <div className="converter-window app-frame">
+      <div className="window-titlebar"><div className="window-title"><span className="window-file-icon"><FileText size={18} /></span><ArrowRight size={14} /><Image size={19} /><p className="window-heading">PDF to image</p></div><span className="window-status"><span /> Local processing</span></div>
+      <div className="converter-body">
+        <div className="output-format"><span className="field-label" id={embedded ? "output-label-home" : "output-label"}>Convert to</span><div className="format-options" role="group" aria-labelledby={embedded ? "output-label-home" : "output-label"}>{FORMATS.map((item) => <button type="button" key={item.value} aria-pressed={format === item.value} disabled={processing} onClick={() => { setFormat(item.value); if (doc) setDirty(true); }}>{item.label}{format === item.value && <Check size={14} />}</button>)}</div></div>
+        <FileDropzone accept="application/pdf,.pdf" onFileSelect={loadFile} selectedFile={file} onClearFile={reset} disabled={processing || downloading} />
+        <div className="converter-settings"><label><span>Resolution</span><select aria-label="Output resolution" value={scale} disabled={processing} onChange={(event) => { setScale(Number(event.target.value)); if (doc) setDirty(true); }}><option value={1}>72 DPI</option><option value={2}>144 DPI (2x)</option><option value={300 / 72}>300 DPI</option></select></label><label className="quality-field"><span>Image quality <output>{Math.round(quality * 100)}%</output></span><input aria-label="Image quality" type="range" min="0.5" max="1" step="0.05" value={quality} disabled={processing || format === "image/png"} onChange={(event) => { setQuality(Number(event.target.value)); if (doc) setDirty(true); }} /></label></div>
+        {dirty && doc && <button type="button" className="btn btn--primary apply-settings" onClick={() => void convert(doc, ++runId.current)} disabled={processing}><RefreshCw size={16} /> Apply settings</button>}
+        {processing && <div className="conversion-progress" role="status"><div><Loader2 size={17} className="spinner" /><span>{progress.total ? `Converting page ${Math.min(progress.current + 1, progress.total)} of ${progress.total}` : "Opening your PDF…"}</span></div><progress max={progress.total || 1} value={progress.current} /></div>}
+        {error && <p role="alert" className="error-message"><AlertCircle size={17} />{error}</p>}
       </div>
-
-      {/* Main Upload Dropzone */}
-      <FileDropzone
-        accept="application/pdf,.pdf"
-        title="Upload your PDF Document"
-        description="Drag and drop your PDF here, or click to browse (100% private, processed client-side)"
-        onFileSelect={handleFileSelect}
-        selectedFile={file}
-        onClearFile={resetAll}
-        disabled={isProcessing}
-      />
-
-      {/* Processing Progress Indicator */}
-      {isProcessing && (
-        <div className="glass-panel p-6 text-center space-y-4 animate-fade-in">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-400">
-            <Loader2 className="w-6 h-6 animate-spin" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-white">{progressMsg}</h3>
-            <p className="text-xs text-gray-400 mt-1">Rendering high resolution canvas elements...</p>
-          </div>
-        </div>
-      )}
-
-      {/* Results & Conversion Controls */}
-      {renderedPages.length > 0 && !isProcessing && (
-        <div className="space-y-6 animate-fade-in">
-          
-          {/* Settings & Toolbar Header */}
-          <div className="glass-panel p-5 bg-slate-900/60 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            
-            {/* Format & Quality Settings */}
-            <div className="flex flex-wrap items-center gap-4 text-xs sm:text-sm">
-              <div className="flex items-center gap-2">
-                <Sliders className="w-4 h-4 text-indigo-400 shrink-0" />
-                <span className="text-gray-300 font-semibold">Format:</span>
-                <select
-                  value={format}
-                  onChange={(e) => handleSettingsChange(e.target.value as any, scale, quality)}
-                  className="bg-slate-800 border border-white/10 rounded-lg px-3 py-1.5 text-white text-xs font-semibold focus:outline-none focus:border-indigo-500"
-                >
-                  <option value="image/jpeg">JPEG (.jpg)</option>
-                  <option value="image/png">PNG Lossless (.png)</option>
-                  <option value="image/webp">WebP (.webp)</option>
-                </select>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-gray-300 font-semibold">Resolution:</span>
-                <select
-                  value={scale}
-                  onChange={(e) => handleSettingsChange(format, Number(e.target.value), quality)}
-                  className="bg-slate-800 border border-white/10 rounded-lg px-3 py-1.5 text-white text-xs font-semibold focus:outline-none focus:border-indigo-500"
-                >
-                  <option value={1}>1x (72 DPI - Standard)</option>
-                  <option value={2}>2x (150 DPI - High Quality HD)</option>
-                  <option value={3}>3x (300 DPI - Ultra Print HD)</option>
-                </select>
-              </div>
-
-              {format === 'image/jpeg' && (
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-300 font-semibold">Quality:</span>
-                  <input
-                    type="range"
-                    min="0.5"
-                    max="1.0"
-                    step="0.05"
-                    value={quality}
-                    onChange={(e) => handleSettingsChange(format, scale, Number(e.target.value))}
-                    className="w-24 accent-indigo-500 cursor-pointer"
-                  />
-                  <span className="text-indigo-300 font-mono text-xs">{Math.round(quality * 100)}%</span>
-                </div>
-              )}
-            </div>
-
-            {/* Quick Action Buttons */}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={toggleSelectAll}
-                className="btn btn-secondary btn-sm text-xs flex items-center gap-1.5"
-              >
-                {selectedPages.size === renderedPages.length ? (
-                  <>
-                    <Square className="w-3.5 h-3.5 text-indigo-400" /> Deselect All
-                  </>
-                ) : (
-                  <>
-                    <CheckSquare className="w-3.5 h-3.5 text-indigo-400" /> Select All ({renderedPages.length})
-                  </>
-                )}
-              </button>
-
-              <button
-                onClick={handleDownloadZip}
-                disabled={selectedPages.size === 0}
-                className="btn btn-primary btn-sm flex items-center gap-2 text-xs"
-              >
-                <Download className="w-4 h-4" />
-                <span>Download {selectedPages.size} Page{selectedPages.size === 1 ? '' : 's'} (ZIP)</span>
-              </button>
-            </div>
-
-          </div>
-
-          {/* Grid Preview of Rendered Pages */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {renderedPages.map((page) => {
-              const isSelected = selectedPages.has(page.pageNumber);
-              return (
-                <div
-                  key={page.pageNumber}
-                  className={`glass-panel p-3 rounded-xl border transition-all duration-300 relative group flex flex-col justify-between ${
-                    isSelected ? 'border-indigo-500/60 bg-indigo-950/20 shadow-lg shadow-indigo-500/10' : 'border-white/5 opacity-70 hover:opacity-100'
-                  }`}
-                >
-                  {/* Thumbnail Header */}
-                  <div className="flex items-center justify-between gap-2 mb-2 px-1">
-                    <span className="text-xs font-semibold text-gray-300 font-mono">
-                      Page {page.pageNumber}
-                    </span>
-                    <button
-                      onClick={() => toggleSelectPage(page.pageNumber)}
-                      className="text-indigo-400 hover:text-indigo-300 p-1"
-                    >
-                      {isSelected ? (
-                        <CheckSquare className="w-5 h-5 text-indigo-400 fill-indigo-500/20" />
-                      ) : (
-                        <Square className="w-5 h-5 text-gray-500" />
-                      )}
-                    </button>
-                  </div>
-
-                  {/* Thumbnail Image Container */}
-                  <div 
-                    onClick={() => setActivePreviewPage(page)}
-                    className="relative aspect-[3/4] bg-black/40 rounded-lg overflow-hidden border border-white/5 cursor-pointer group-hover:border-indigo-500/40 transition-colors flex items-center justify-center p-2"
-                  >
-                    <img
-                      src={page.dataUrl}
-                      alt={`Page ${page.pageNumber}`}
-                      className="max-h-full max-w-full object-contain rounded shadow"
-                    />
-
-                    {/* Overlay Zoom Icon */}
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                      <span className="btn btn-secondary btn-sm text-xs bg-slate-900/80 border-white/20">
-                        <Maximize2 className="w-3.5 h-3.5 text-indigo-300" /> Preview
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Action Footer */}
-                  <div className="mt-3 pt-2 border-t border-white/5 flex items-center justify-between gap-2 px-1">
-                    <span className="text-[11px] text-gray-400 font-mono">
-                      {page.width}x{page.height}px
-                    </span>
-                    <button
-                      onClick={() => downloadSinglePage(page, `page-${page.pageNumber}.${format === 'image/png' ? 'png' : format === 'image/webp' ? 'webp' : 'jpg'}`)}
-                      className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 hover:underline"
-                    >
-                      <Download className="w-3.5 h-3.5" /> Save
-                    </button>
-                  </div>
-
-                </div>
-              );
-            })}
-          </div>
-
-        </div>
-      )}
-
-      {/* Lightbox Modal */}
-      {activePreviewPage && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-          <div className="glass-panel max-w-4xl w-full max-h-[90vh] p-6 rounded-2xl flex flex-col gap-4 border-indigo-500/30">
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
-              <div>
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <span>Page {activePreviewPage.pageNumber} Preview</span>
-                  <span className="badge badge-indigo text-xs">
-                    {activePreviewPage.width} x {activePreviewPage.height} px
-                  </span>
-                </h3>
-              </div>
-              <button
-                onClick={() => setActivePreviewPage(null)}
-                className="p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/10"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-auto flex items-center justify-center bg-black/50 p-4 rounded-xl border border-white/5">
-              <img
-                src={activePreviewPage.dataUrl}
-                alt={`Preview page ${activePreviewPage.pageNumber}`}
-                className="max-h-[65vh] object-contain rounded shadow-2xl"
-              />
-            </div>
-
-            <div className="flex items-center justify-between pt-2 border-t border-white/10">
-              <button
-                onClick={() => setActivePreviewPage(null)}
-                className="btn btn-secondary btn-sm"
-              >
-                Close Preview
-              </button>
-              <button
-                onClick={() => {
-                  downloadSinglePage(activePreviewPage, `page-${activePreviewPage.pageNumber}.${format === 'image/png' ? 'png' : format === 'image/webp' ? 'webp' : 'jpg'}`);
-                  setActivePreviewPage(null);
-                }}
-                className="btn btn-primary btn-sm flex items-center gap-2"
-              >
-                <Download className="w-4 h-4" /> Download Image
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
+      <div className="window-foot"><span><LockKeyhole size={13} /> Your file never leaves this device</span><span>PDF → {FORMATS.find((item) => item.value === format)?.label}</span></div>
     </div>
-  );
+    {pages.length > 0 && !processing && <div className="conversion-results"><div className="results-toolbar"><div><h2><CheckCheck size={21} /> {pages.length} page{pages.length !== 1 && "s"} ready</h2><p>{dirty ? "Apply your new settings to update these images." : "Preview your pages and save the ones you need."}</p></div><button type="button" className="btn btn--primary" disabled={!selected.size || downloading} onClick={downloadZip}>{downloading ? <Loader2 className="spinner" size={17} /> : <Download size={17} />}{downloading ? "Creating ZIP…" : `Download ZIP (${selected.size})`}</button></div><button type="button" className="selection-toggle" onClick={() => setSelected(selected.size === pages.length ? new Set() : new Set(pages.map((page) => page.pageNumber)))}>{selected.size === pages.length ? "Deselect all pages" : "Select all pages"}</button><div className="page-previews">{pages.map((page) => <article key={page.pageNumber} className={`page-preview ${selected.has(page.pageNumber) ? "is-selected" : ""}`}><div className="page-preview-top"><label><input type="checkbox" checked={selected.has(page.pageNumber)} onChange={() => toggle(page.pageNumber)} />Page {page.pageNumber}</label><button type="button" className="icon-button" aria-label={`Preview page ${page.pageNumber}`} onClick={() => setPreview(page)}><Maximize2 size={16} /></button></div><button type="button" className="preview-image-button" onClick={() => setPreview(page)} aria-label={`Enlarge page ${page.pageNumber}`}><img src={page.dataUrl} alt={`Converted PDF page ${page.pageNumber}`} /></button><div className="page-preview-foot"><span>{page.width} × {page.height}</span><button type="button" className="icon-button" aria-label={`Download page ${page.pageNumber}`} onClick={() => downloadSinglePage(page, `page-${page.pageNumber}.${extension}`)}><Download size={17} /></button></div></article>)}</div></div>}
+    <dialog ref={dialog} className="preview-dialog" onCancel={() => setPreview(null)} onClick={(event) => { if (event.target === event.currentTarget) setPreview(null); }}>{preview && <><div className="dialog-header"><h2>Page {preview.pageNumber}</h2><button className="icon-button" type="button" aria-label="Close preview" onClick={() => setPreview(null)}><X size={21} /></button></div><img src={preview.dataUrl} alt={`Full preview of PDF page ${preview.pageNumber}`} /><div className="dialog-actions"><span>{preview.width} × {preview.height} pixels</span><button className="btn btn--primary" type="button" onClick={() => downloadSinglePage(preview, `page-${preview.pageNumber}.${extension}`)}><Download size={17} /> Download image</button></div></>}</dialog>
+  </div>;
 }

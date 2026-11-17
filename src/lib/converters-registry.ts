@@ -15,19 +15,19 @@ export const CONVERTER_TOOLS: ConverterTool[] = [
   {
     id: 'pdf-to-jpeg',
     name: 'PDF to JPEG',
-    description: 'Convert PDF pages into high-resolution JPG images instantly in your browser.',
+    description: 'Save each PDF page as a JPEG image at your chosen resolution.',
     fromFormat: 'PDF',
     toFormat: 'JPEG',
     category: 'pdf',
     icon: 'FileImage',
     popular: true,
-    badge: 'Fast & Private',
+    badge: 'Popular',
     status: 'active'
   },
   {
     id: 'pdf-to-png',
     name: 'PDF to PNG',
-    description: 'Extract PDF pages as lossless transparent PNG images with customizable DPI.',
+    description: 'Export PDF pages as lossless PNG images with adjustable resolution.',
     fromFormat: 'PDF',
     toFormat: 'PNG',
     category: 'pdf',
@@ -43,12 +43,12 @@ export const CONVERTER_TOOLS: ConverterTool[] = [
     toFormat: 'PDF',
     category: 'pdf',
     icon: 'FilePlus',
-    status: 'active'
+    status: 'coming-soon'
   },
   {
     id: 'jpg-to-png',
     name: 'JPG to PNG',
-    description: 'Convert JPEG images to crisp PNG format with transparent background support.',
+    description: 'Change JPEG images to PNG while keeping their original dimensions.',
     fromFormat: 'JPG',
     toFormat: 'PNG',
     category: 'image',
@@ -58,7 +58,7 @@ export const CONVERTER_TOOLS: ConverterTool[] = [
   {
     id: 'png-to-jpg',
     name: 'PNG to JPG',
-    description: 'Compress and transform PNG images to standard JPEG format.',
+    description: 'Save PNG images as JPEGs with the quality setting you choose.',
     fromFormat: 'PNG',
     toFormat: 'JPG',
     category: 'image',
@@ -68,7 +68,7 @@ export const CONVERTER_TOOLS: ConverterTool[] = [
   {
     id: 'webp-to-jpg',
     name: 'WebP to JPG',
-    description: 'Convert modern WebP images to universally compatible JPEG graphics.',
+    description: 'Turn WebP images into JPEGs for sharing and everyday use.',
     fromFormat: 'WEBP',
     toFormat: 'JPG',
     category: 'image',
@@ -83,12 +83,12 @@ export const CONVERTER_TOOLS: ConverterTool[] = [
     toFormat: 'TXT',
     category: 'document',
     icon: 'FileText',
-    status: 'active'
+    status: 'coming-soon'
   },
   {
     id: 'pdf-compressor',
     name: 'PDF Optimizer',
-    description: 'Reduce PDF file size while retaining crystal clear visual clarity.',
+    description: 'Reduce PDF file sizes for sharing and storage.',
     fromFormat: 'PDF',
     toFormat: 'PDF',
     category: 'pdf',
@@ -99,8 +99,8 @@ export const CONVERTER_TOOLS: ConverterTool[] = [
 ];
 
 export const CATEGORIES = [
-  { id: 'all', label: 'All Tools' },
-  { id: 'pdf', label: '📄 PDF Suite' },
-  { id: 'image', label: '🖼️ Image Tools' },
-  { id: 'document', label: '📝 Documents' }
+  { id: 'all', label: 'All tools' },
+  { id: 'pdf', label: 'PDF tools' },
+  { id: 'image', label: 'Images' },
+  { id: 'document', label: 'Documents' }
 ];

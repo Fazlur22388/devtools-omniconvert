@@ -1,152 +1,39 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import saveAs from 'file-saver';
-import FileDropzone from '@/components/FileDropzone';
-import { RefreshCw, Download, Image as ImageIcon, Sliders, CheckCircle2, Sparkles } from 'lucide-react';
+import { useRef, useState } from "react";
+import saveAs from "file-saver";
+import { AlertCircle, Download, LockKeyhole } from "lucide-react";
+import FileDropzone from "./FileDropzone";
 
-interface ImageConverterProps {
-  initialFrom?: string;
-  initialTo?: string;
-}
-
-export default function ImageConverter({ initialFrom = 'JPG', initialTo = 'PNG' }: ImageConverterProps) {
+export default function ImageConverter({ initialFrom = "JPG", initialTo = "PNG" }: { initialFrom?: string; initialTo?: string }) {
   const [file, setFile] = useState<File | null>(null);
-  const [targetFormat, setTargetFormat] = useState<string>(initialTo.toLowerCase());
-  const [quality, setQuality] = useState<number>(0.92);
-  const [isConverting, setIsConverting] = useState<boolean>(false);
-  const [convertedDataUrl, setConvertedDataUrl] = useState<string | null>(null);
-  const [convertedBlob, setConvertedBlob] = useState<Blob | null>(null);
+  const [format, setFormat] = useState(initialTo.toLowerCase());
+  const [quality, setQuality] = useState(0.9);
+  const [result, setResult] = useState<{ url: string; blob: Blob; format: string; width: number; height: number } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const task = useRef(0);
 
-  const handleFileSelect = (selectedFile: File) => {
-    setFile(selectedFile);
-    setConvertedDataUrl(null);
-    setConvertedBlob(null);
-    convertImage(selectedFile, targetFormat, quality);
-  };
+  async function convert(source: File, target: string, imageQuality: number) {
+    const version = ++task.current;
+    setBusy(true); setError(""); setResult(null);
+    const sourceUrl = URL.createObjectURL(source);
+    try {
+      const image = new window.Image();
+      image.src = sourceUrl;
+      await image.decode();
+      const canvas = document.createElement("canvas");
+      canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Your browser could not prepare this image.");
+      if (target === "jpg") { context.fillStyle = "#fff"; context.fillRect(0, 0, canvas.width, canvas.height); }
+      context.drawImage(image, 0, 0);
+      const mime = target === "jpg" ? "image/jpeg" : `image/${target}`;
+      const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error("The image could not be converted.")), mime, imageQuality));
+      if (version === task.current) setResult({ url: canvas.toDataURL(mime, imageQuality), blob, format: target, width: canvas.width, height: canvas.height });
+    } catch (reason) { if (version === task.current) setError(reason instanceof Error ? reason.message : "This image could not be opened. Try another file."); }
+    finally { URL.revokeObjectURL(sourceUrl); if (version === task.current) setBusy(false); }
+  }
 
-  const convertImage = (fileToConvert: File, toFmt: string, imgQuality: number) => {
-    setIsConverting(true);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-
-        if (toFmt === 'jpg' || toFmt === 'jpeg') {
-          ctx.fillStyle = '#FFFFFF';
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-        }
-
-        ctx.drawImage(img, 0, 0);
-
-        const mime = toFmt === 'png' ? 'image/png' : toFmt === 'webp' ? 'image/webp' : 'image/jpeg';
-        canvas.toBlob(
-          (blob) => {
-            if (blob) {
-              setConvertedBlob(blob);
-              setConvertedDataUrl(canvas.toDataURL(mime, imgQuality));
-            }
-            setIsConverting(false);
-          },
-          mime,
-          imgQuality
-        );
-      };
-      img.src = e.target?.result as string;
-    };
-    reader.readAsDataURL(fileToConvert);
-  };
-
-  const handleDownload = () => {
-    if (!convertedBlob || !file) return;
-    const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
-    const ext = targetFormat === 'png' ? 'png' : targetFormat === 'webp' ? 'webp' : 'jpg';
-    saveAs(convertedBlob, `${nameWithoutExt}-converted.${ext}`);
-  };
-
-  return (
-    <div className="w-full space-y-8 animate-fade-in">
-      {/* Banner */}
-      <div className="glass-panel p-6 sm:p-8 bg-gradient-to-r from-purple-900/30 via-indigo-900/20 to-slate-900/40">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="badge badge-indigo">
-              <Sparkles className="w-3.5 h-3.5" /> Instant Image Engine
-            </span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-3">
-            <ImageIcon className="w-8 h-8 text-purple-400" />
-            Image Converter ({initialFrom} to {initialTo})
-          </h1>
-          <p className="text-gray-300 text-sm max-w-2xl leading-relaxed">
-            Convert image formats instantly with custom quality settings. Supports PNG, JPG, and WebP formats with 100% client-side rendering.
-          </p>
-        </div>
-      </div>
-
-      {/* Upload Dropzone */}
-      <FileDropzone
-        accept="image/*"
-        title="Upload Image File"
-        description="Drag & drop JPG, PNG, or WebP image here (Client-side private)"
-        onFileSelect={handleFileSelect}
-        selectedFile={file}
-        onClearFile={() => {
-          setFile(null);
-          setConvertedDataUrl(null);
-          setConvertedBlob(null);
-        }}
-        disabled={isConverting}
-      />
-
-      {/* Options & Preview */}
-      {file && (
-        <div className="glass-panel p-6 space-y-6 animate-fade-in">
-          <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-white/10">
-            <div className="flex items-center gap-4 text-sm">
-              <span className="text-gray-300 font-semibold">Convert To:</span>
-              <select
-                value={targetFormat}
-                onChange={(e) => {
-                  setTargetFormat(e.target.value);
-                  convertImage(file, e.target.value, quality);
-                }}
-                className="bg-slate-800 border border-white/10 rounded-lg px-3 py-1.5 text-white font-semibold text-xs"
-              >
-                <option value="png">PNG (.png)</option>
-                <option value="jpg">JPG (.jpg)</option>
-                <option value="webp">WebP (.webp)</option>
-              </select>
-            </div>
-
-            <button
-              onClick={handleDownload}
-              disabled={!convertedBlob || isConverting}
-              className="btn btn-primary btn-sm flex items-center gap-2"
-            >
-              <Download className="w-4 h-4" /> Download Converted File
-            </button>
-          </div>
-
-          {convertedDataUrl && (
-            <div className="flex flex-col items-center justify-center p-4 bg-black/40 rounded-xl border border-white/5">
-              <img
-                src={convertedDataUrl}
-                alt="Converted preview"
-                className="max-h-72 object-contain rounded shadow-lg"
-              />
-              <span className="text-xs text-gray-400 mt-3 font-mono">
-                Ready to download as .{targetFormat}
-              </span>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
+  return <div className="image-tool"><div className="converter-heading"><p className="eyebrow">Image tools</p><h1>{initialFrom} to {initialTo}</h1><p>Change your image format, adjust the quality, and download the result. Your image stays on this device.</p></div><div className="image-workspace"><FileDropzone accept="image/jpeg,image/png,image/webp" onFileSelect={(next) => { setFile(next); void convert(next, format, quality); }} selectedFile={file} onClearFile={() => { ++task.current; setFile(null); setResult(null); setError(""); }} disabled={busy} /><div className="converter-settings"><label><span>Output format</span><select value={format} disabled={busy} onChange={(event) => { setFormat(event.target.value); if (file) void convert(file, event.target.value, quality); }}><option value="png">PNG (.png)</option><option value="jpg">JPEG (.jpg)</option><option value="webp">WebP (.webp)</option></select></label><label className="quality-field"><span>Image quality <output>{Math.round(quality * 100)}%</output></span><input aria-label="Image quality" type="range" min="0.5" max="1" step="0.05" disabled={busy || format === "png"} value={quality} onChange={(event) => setQuality(Number(event.target.value))} onPointerUp={() => { if (file) void convert(file, format, quality); }} onKeyUp={(event) => { if (file && event.key.startsWith("Arrow")) void convert(file, format, quality); }} /></label></div>{busy && <p className="processing-note" role="status">Converting your image…</p>}{error && <p className="error-message" role="alert"><AlertCircle size={17} />{error}</p>}{result && <div className="image-result"><div className="image-result-heading"><span>{result.width} × {result.height} · {(result.blob.size / 1024).toFixed(1)} KB</span><button type="button" className="btn btn--primary" onClick={() => saveAs(result.blob, `${file?.name.replace(/\.[^/.]+$/, "")}-converted.${result.format}`)}><Download size={17} /> Download image</button></div><img src={result.url} alt={`Your converted ${result.format.toUpperCase()} image`} /></div>}<p className="library-note"><LockKeyhole size={15} /> Converted on your device</p></div></div>;
 }

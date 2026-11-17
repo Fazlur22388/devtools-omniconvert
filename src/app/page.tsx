@@ -1,198 +1,74 @@
 "use client";
 
-import React, { useState } from "react";
-import PDFToImageConverter from "@/components/PDFToImageConverter";
+import { useState } from "react";
+import { ArrowDown, ArrowRight, Check, FileImage, LockKeyhole, Search, ShieldCheck, X } from "lucide-react";
 import ConverterCard from "@/components/ConverterCard";
-import { CONVERTER_TOOLS, CATEGORIES } from "@/lib/converters-registry";
-import {
-  Sparkles,
-  Shield,
-  Cpu,
-  Zap,
-  Layers,
-  FileImage,
-  Grid,
-  ArrowDown,
-} from "lucide-react";
+import PDFToImageConverter from "@/components/PDFToImageConverter";
+import { CATEGORIES, CONVERTER_TOOLS } from "@/lib/converters-registry";
 
 export default function Home() {
-  const [activeCategory, setActiveCategory] = useState<string>("all");
-  const [activeTab, setActiveTab] = useState<"featured-pdf" | "grid">(
-    "featured-pdf",
+  const [category, setCategory] = useState("all");
+  const [query, setQuery] = useState("");
+  const tools = CONVERTER_TOOLS.filter((tool) =>
+    (category === "all" || tool.category === category) &&
+    `${tool.name} ${tool.description}`.toLowerCase().includes(query.toLowerCase().trim()),
   );
 
-  const filteredTools = CONVERTER_TOOLS.filter((tool) => {
-    if (activeCategory === "all") return true;
-    return tool.category === activeCategory;
-  });
-
   return (
-    <div className="space-y-16 animate-fade-in">
-      {/* Hero Section */}
-      <section className="text-center space-y-6 pt-4 pb-8 max-w-4xl mx-auto">
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-semibold">
-          <Sparkles className="w-4 h-4 text-indigo-400" />
-          <span>Next-Generation Format Conversion Platform</span>
+    <>
+      {/* software; blue-black-cornflower / instrument; collage adapted for a live file tool;
+          nav-centre / footer-columns / close-type / surface-pairs / tonal / ring. */}
+      <section className="hero hero--collage conversion-hero" data-enter aria-labelledby="hero-h">
+        <div className="wrap">
+          <div className="hero-columns hero-text">
+            <div className="hero-copy hero__text">
+              <p className="eyebrow"><span className="status-dot" /> Your files stay on your device</p>
+              <h1 id="hero-h">File conversion<br /><span>inside your<br className="desktop-break" /> browser.</span></h1>
+              <p className="hero__lead">Turn PDF pages into images and switch image formats. Open a file, choose your settings, and save it straight to your device.</p>
+              <div className="hero-links">
+                <a href="#converters" className="btn btn--secondary">Browse all tools <ArrowRight size={18} className="m-arrow" /></a>
+                <span className="small-note">Free to use. No account.</span>
+              </div>
+              <div className="hero-specs"><span><LockKeyhole size={16} /> No file uploads</span><span><FileImage size={16} /> Files up to 100 MB</span></div>
+            </div>
+            <div id="convert" className="hero-workspace" data-enter-media><PDFToImageConverter embedded /></div>
+          </div>
+          <div className="hero-bottom"><a className="scroll-link" href="#converters"><ArrowDown size={16} /> Find the right format</a><p>PDF <span>/</span> JPEG <span>/</span> PNG <span>/</span> WebP</p><span className="local-note"><ShieldCheck size={16} /> Processed on your device</span></div>
         </div>
+      </section>
 
-        <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-white leading-tight">
-          Convert PDF & Media Files <br />
-          <span className="gradient-text-accent">
-            100% Privately In Your Browser
-          </span>
-        </h1>
-
-        <p className="text-gray-300 text-base sm:text-lg max-w-2xl mx-auto leading-relaxed">
-          Transform PDFs into high-DPI JPEGs, PNGs, and extra formats instantly.
-          Fast, hardware-accelerated processing with zero server uploads.
-        </p>
-
-        {/* Feature Badges */}
-        <div className="flex flex-wrap items-center justify-center gap-6 pt-2 text-xs font-semibold text-gray-400">
-          <div className="flex items-center gap-2 bg-slate-900/60 px-4 py-2 rounded-xl border border-white/5">
-            <Shield className="w-4 h-4 text-emerald-400" />
-            <span>Zero Data Leakage</span>
+      <section id="converters" className="tools-section section" aria-labelledby="tools-h">
+        <div className="wrap">
+          <div className="section-heading"><div><h2 id="tools-h">A tool for your next file.</h2></div><p>Choose the format you need. <br />Everything happens in your browser.</p></div>
+          <div className="library-toolbar">
+            <div className="category-filters" aria-label="Filter tools">{CATEGORIES.map((item) => <button type="button" key={item.id} aria-pressed={category === item.id} onClick={() => setCategory(item.id)}>{item.label}<span>{item.id === "all" ? CONVERTER_TOOLS.length : CONVERTER_TOOLS.filter((tool) => tool.category === item.id).length}</span></button>)}</div>
+            <div className="tool-search"><label htmlFor="tool-search">Search tools</label><div><Search size={17} /><input id="tool-search" placeholder="Try “PNG”" value={query} onChange={(event) => setQuery(event.target.value)} />{query && <button type="button" aria-label="Clear search" onClick={() => setQuery("")}><X size={16} /></button>}</div></div>
           </div>
-          <div className="flex items-center gap-2 bg-slate-900/60 px-4 py-2 rounded-xl border border-white/5">
-            <Cpu className="w-4 h-4 text-indigo-400" />
-            <span>Canvas WebWorker GPU Engine</span>
-          </div>
-          <div className="flex items-center gap-2 bg-slate-900/60 px-4 py-2 rounded-xl border border-white/5">
-            <Zap className="w-4 h-4 text-cyan-400" />
-            <span>Batch ZIP Download</span>
-          </div>
+          <p className="sr-only" role="status">{tools.length} tools found</p>
+          <div className="tools-grid grid" data-visual>{tools.map((tool) => <ConverterCard key={tool.id} tool={tool} />)}</div>
+          {tools.length === 0 && <div className="empty-search"><Search size={28} /><h3>No matching tools</h3><p>Try a file format such as PDF, JPG, or PNG.</p><button className="btn btn--secondary" onClick={() => { setQuery(""); setCategory("all"); }}>See all tools</button></div>}
+          <p className="library-note"><LockKeyhole size={15} /> Your files are processed locally. Nothing to sign up for.</p>
         </div>
+      </section>
 
-        {/* Tab Selector: Direct Converter vs Grid */}
-        <div className="pt-6 flex justify-center">
-          <div className="inline-flex p-1 bg-slate-900/90 rounded-2xl border border-white/10 shadow-xl">
-            <button
-              onClick={() => setActiveTab("featured-pdf")}
-              className={`px-5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all flex items-center gap-2 ${
-                activeTab === "featured-pdf"
-                  ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg"
-                  : "text-gray-400 hover:text-white"
-              }`}
-            >
-              <FileImage className="w-4 h-4" /> PDF to JPEG Tool
-            </button>
-            <button
-              onClick={() => setActiveTab("grid")}
-              className={`px-5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all flex items-center gap-2 ${
-                activeTab === "grid"
-                  ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg"
-                  : "text-gray-400 hover:text-white"
-              }`}
-            >
-              <Grid className="w-4 h-4" /> All Converter Tools (
-              {CONVERTER_TOOLS.length})
-            </button>
+      <section id="how-it-works" className="process-section section" aria-labelledby="process-h">
+        <div className="wrap">
+          <div className="section-heading"><div><h2 id="process-h">From file to download.</h2></div><p>Keep control over the format, <br />the quality, and the final download.</p></div>
+          <div className="process-grid grid">
+            <article><span className="step-number">01 /</span><h3>Choose your file</h3><p>Drop a PDF or an image into its converter, or browse the files on your device.</p><div className="step-visual file-visual" role="img" aria-label="A PDF file converted to a JPG file" data-visual><span className="file-outline">PDF</span><ArrowRight size={24} /><span className="file-outline file-outline-alt">JPG</span></div></article>
+            <article><span className="step-number">02 /</span><h3>Choose the output format</h3><p>Choose an image format. For PDFs, adjust the resolution and select the pages you want.</p><div className="step-visual format-visual" role="img" aria-label="JPEG, PNG, and WebP format choices with PNG selected" data-visual><span>JPEG</span><span className="selected-format">PNG <Check size={15} /></span><span>WebP</span></div></article>
+            <article><span className="step-number">03 /</span><h3>Download your images</h3><p>Download an individual image, or collect your selected PDF pages in one ZIP file.</p><div className="step-visual download-visual" role="img" aria-label="An image ready for download" data-visual><span><Check size={17} /> Ready to download</span><ArrowDown size={22} /></div></article>
           </div>
         </div>
       </section>
 
-      {/* Primary Tool View: PDF to JPEG Converter */}
-      {activeTab === "featured-pdf" && (
-        <section id="pdf-converter-main" className="space-y-6">
-          <PDFToImageConverter />
-        </section>
-      )}
-
-      {/* Grid View: Many-to-Many Options Suite */}
-      <section id="converters" className="space-y-8 pt-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-              <Layers className="w-6 h-6 text-indigo-400" />
-              <span>Multi-Format Converter Suite</span>
-            </h2>
-            <p className="text-xs text-gray-400 mt-1">
-              Select any from-to format pair for instant client-side conversion.
-            </p>
-          </div>
-
-          {/* Category Filter */}
-          <div className="flex flex-wrap items-center gap-2">
-            {CATEGORIES.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => {
-                  setActiveCategory(cat.id);
-                  setActiveTab("grid");
-                }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                  activeCategory === cat.id && activeTab === "grid"
-                    ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/40"
-                    : "bg-slate-900/60 text-gray-400 hover:text-white border border-white/5"
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Tools Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredTools.map((tool) => (
-            <ConverterCard key={tool.id} tool={tool} />
-          ))}
+      <section id="privacy" className="privacy-section section" aria-labelledby="privacy-h">
+        <div className="wrap">
+          <div className="privacy-top"><span className="privacy-symbol"><LockKeyhole size={32} strokeWidth={1.3} /></span><span className="eyebrow">Local by design</span></div>
+          <h2 id="privacy-h" className="mo-lt__type" data-moment="liquid-type" data-moment-opts='{"strength":0.4}'>Your browser.<br />Your files.</h2>
+          <div className="privacy-bottom"><p>OmniConvert reads and converts your files on this device. File contents are never sent to a conversion server.</p><div><p>Large documents use your device’s memory and may take longer to process.</p><a className="link" href="/converter/pdf-to-jpeg">Convert a PDF</a></div></div>
         </div>
       </section>
-
-      {/* Why Choose Section */}
-      <section className="glass-panel p-8 sm:p-12 rounded-3xl space-y-8 border-indigo-500/20 bg-gradient-to-b from-slate-900/80 to-[#0c101a]">
-        <div className="text-center max-w-2xl mx-auto space-y-3">
-          <h3 className="text-2xl font-bold text-white">
-            Designed for Developers, Professionals & Creators
-          </h3>
-          <p className="text-gray-400 text-xs sm:text-sm">
-            Everything you need for clean, private, high-fidelity file format
-            conversions.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-          <div className="space-y-3 text-center sm:text-left">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mx-auto sm:mx-0">
-              <Shield className="w-5 h-5" />
-            </div>
-            <h4 className="text-white font-semibold text-base">
-              100% Air-Gapped Privacy
-            </h4>
-            <p className="text-gray-400 text-xs leading-relaxed">
-              Your sensitive documents never leave your computer. Parsing and
-              rendering are handled strictly inside your browser memory.
-            </p>
-          </div>
-
-          <div className="space-y-3 text-center sm:text-left">
-            <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 mx-auto sm:mx-0">
-              <Zap className="w-5 h-5" />
-            </div>
-            <h4 className="text-white font-semibold text-base">
-              Custom Resolution DPI
-            </h4>
-            <p className="text-gray-400 text-xs leading-relaxed">
-              Render PDFs at standard (72 DPI), HD (150 DPI), or Ultra High
-              Print Quality (300 DPI) for flawless sharp text & graphics.
-            </p>
-          </div>
-
-          <div className="space-y-3 text-center sm:text-left">
-            <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 mx-auto sm:mx-0">
-              <Layers className="w-5 h-5" />
-            </div>
-            <h4 className="text-white font-semibold text-base">
-              Expandable Tool Architecture
-            </h4>
-            <p className="text-gray-400 text-xs leading-relaxed">
-              Easily handles PDF to JPEG/PNG, Image to PDF, and format
-              transformations with modular converter plugins.
-            </p>
-          </div>
-        </div>
-      </section>
-    </div>
+    </>
   );
 }
