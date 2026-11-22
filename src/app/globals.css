@@ -411,3 +411,44 @@ main > .converter-page { height: auto; min-height: 100svh; padding: 120px 0 80px
   .privacy-section h2 { font-size: 56px; }
 }
 @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+
+/* Document tools share the existing converter palette, controls and spacing. */
+.document-tool { max-width: 100%; }
+.document-settings { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.document-settings select { min-height: 44px; font-size: 14px; }
+.document-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-top: 24px; }
+.document-note { margin-top: 20px; color: var(--readable); font-size: 14px; line-height: 1.65; }
+.document-progress { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 24px; color: var(--readable); font-size: 14px; line-height: 1.5; }
+.document-progress > span { display: inline-flex; align-items: center; gap: 12px; }
+.document-list-heading, .document-result-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-top: 32px; }
+.document-list-heading h2, .document-result h2, .document-result-heading h2 { display: flex; align-items: center; gap: 12px; font-size: 22px; letter-spacing: -.5px; line-height: 1.3; }
+.document-result h2 > svg, .document-result-heading h2 > svg { color: var(--p-accent); }
+.document-result-heading > span { color: var(--p-muted); font-size: 13px; }
+.document-result { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--hairline); }
+.document-result p { margin-top: 12px; color: var(--readable); font-size: 14px; line-height: 1.6; }
+.image-pdf-list { list-style: none; margin: 24px 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.image-pdf-list > li { display: flex; align-items: center; gap: 16px; padding: 12px; border: 1px solid var(--hairline); border-radius: 8px; min-width: 0; }
+.image-pdf-list img { width: 64px; height: 80px; object-fit: contain; background: #202530; border-radius: 4px; flex-shrink: 0; }
+.image-pdf-name { flex: 1; min-width: 0; }
+.image-pdf-name strong { display: block; overflow-wrap: anywhere; font-size: 14px; font-weight: 500; }
+.image-pdf-name span { display: block; color: var(--p-muted); font-size: 13px; margin-top: 8px; }
+.image-pdf-actions { display: flex; flex-shrink: 0; gap: 4px; }
+.text-preview-label { display: block; margin-top: 24px; color: var(--p-muted); font-size: 14px; }
+.extracted-text { display: block; resize: vertical; width: 100%; min-height: 240px; max-height: 80svh; margin-top: 12px; padding: 16px; background: #0a0d14; color: var(--p-ink); border: 1px solid #354358; border-radius: 6px; font: 14px/1.65 var(--font-mono); tab-size: 4; }
+.text-extraction-result .document-result { align-items: flex-start; }
+.optimizer-mode { grid-column: 1 / -1; }
+.file-size-comparison { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin: 24px 0 0; }
+.file-size-comparison dt { font-size: 13px; color: var(--p-muted); }
+.file-size-comparison dd { margin: 12px 0 0; font: 20px var(--font-mono); color: var(--p-ink); }
+@media (max-width: 767px) {
+  .document-settings { grid-template-columns: 1fr; }
+  .document-actions > .btn { width: 100%; }
+  .document-progress, .document-result { align-items: stretch; flex-direction: column; }
+  .document-progress .btn { width: 100%; }
+  .image-pdf-list > li { flex-wrap: wrap; gap: 12px; }
+  .image-pdf-actions { width: 100%; justify-content: flex-end; }
+  .image-pdf-name { flex-basis: calc(100% - 80px); }
+  .file-size-comparison { grid-template-columns: 1fr; gap: 20px; }
+  .file-size-comparison > div { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+  .file-size-comparison dd { margin: 0; }
+}

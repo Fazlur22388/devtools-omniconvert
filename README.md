@@ -1,4 +1,27 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+OmniConvert is a browser-local PDF and image conversion app built with Next.js. Files are processed on the user's device.
+
+## Document tools
+
+- **Image to PDF:** add multiple JPG, PNG, or WebP files, reorder or remove pages, and export an A4, Letter, or image-sized PDF with adjustable orientation and margins. The combined input limit is 100 MB.
+- **PDF to Text:** preview, copy, and download selectable text as UTF-8. Scanned pages need OCR; OCR is not included.
+- **PDF Optimizer:** compact PDF structure while preserving text and links, or compress pages as JPEG images with adjustable quality and resolution. Image compression removes selectable text, links, and form fields. If optimization would increase file size, the original is kept unchanged.
+
+The existing PDF-to-image and image-format tools remain available. All eight tool cards link to active converters.
+
+## Browser tests
+
+Use Node.js 22 or later and an installed Chrome, Edge, or Chromium. Start the app, then run tests in a second terminal:
+
+```powershell
+npm.cmd run build
+npm.cmd run start -- --port 3217
+```
+
+```powershell
+npm.cmd run test:documents
+```
+
+Tests use isolated browser profiles and generated fixtures. They inspect actual downloaded PDFs and text files, image order and page sizes, clipboard text, compression results, cancellation, error recovery, mobile overflow, and existing single-file conversion paths. Set `TEST_BASE_URL` for another running server or `CHROME_PATH` for a browser installed in a nonstandard location. On macOS/Linux, use `npm` in place of `npm.cmd`.
 
 ## Getting Started
 
@@ -18,7 +41,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Instrument Sans and DM Mono are served locally from `public/fonts` with their licenses.
 
 ## Learn More
 

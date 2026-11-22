@@ -43,7 +43,7 @@ export const CONVERTER_TOOLS: ConverterTool[] = [
     toFormat: 'PDF',
     category: 'pdf',
     icon: 'FilePlus',
-    status: 'coming-soon'
+    status: 'active'
   },
   {
     id: 'jpg-to-png',
@@ -78,23 +78,22 @@ export const CONVERTER_TOOLS: ConverterTool[] = [
   {
     id: 'pdf-to-text',
     name: 'PDF to Text',
-    description: 'Extract raw selectable text contents from any unencrypted PDF file.',
+    description: 'Extract selectable PDF text, preview it, and save a text file.',
     fromFormat: 'PDF',
     toFormat: 'TXT',
     category: 'document',
     icon: 'FileText',
-    status: 'coming-soon'
+    status: 'active'
   },
   {
     id: 'pdf-compressor',
     name: 'PDF Optimizer',
-    description: 'Reduce PDF file sizes for sharing and storage.',
+    description: 'Optimize PDF structure or compress pages as images to reduce file size.',
     fromFormat: 'PDF',
     toFormat: 'PDF',
     category: 'pdf',
     icon: 'Minimize2',
-    badge: 'Coming Soon',
-    status: 'coming-soon'
+    status: 'active'
   }
 ];
 
