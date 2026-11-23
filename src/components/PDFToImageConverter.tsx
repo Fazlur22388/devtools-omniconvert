@@ -28,7 +28,7 @@ export default function PDFToImageConverter({ embedded = false, initialFormat = 
   const documentRef = useRef<PDFDocumentProxy | null>(null);
   const runId = useRef(0);
 
-  useEffect(() => () => { runId.current++; void documentRef.current?.destroy(); }, []);
+  useEffect(() => () => { runId.current++; void documentRef.current?.loadingTask.destroy(); }, []);
   useEffect(() => { if (preview) dialog.current?.showModal(); else dialog.current?.close(); }, [preview]);
 
   async function convert(pdf: PDFDocumentProxy, task: number) {
@@ -61,10 +61,10 @@ export default function PDFToImageConverter({ embedded = false, initialFormat = 
     setProcessing(true);
     setProgress({ current: 0, total: 0 });
     try {
-      await documentRef.current?.destroy();
+      await documentRef.current?.loadingTask.destroy();
       documentRef.current = null;
       const parsed = await parsePdfDocument(nextFile);
-      if (task !== runId.current) { await parsed.pdfDoc.destroy(); return; }
+      if (task !== runId.current) { await parsed.pdfDoc.loadingTask.destroy(); return; }
       documentRef.current = parsed.pdfDoc;
       setDoc(parsed.pdfDoc);
       await convert(parsed.pdfDoc, task);
@@ -73,7 +73,7 @@ export default function PDFToImageConverter({ embedded = false, initialFormat = 
     }
   }
 
-  function reset() { ++runId.current; void documentRef.current?.destroy(); documentRef.current = null; setDoc(null); setFile(null); setPages([]); setSelected(new Set()); setError(""); setDirty(false); setPreview(null); }
+  function reset() { ++runId.current; void documentRef.current?.loadingTask.destroy(); documentRef.current = null; setDoc(null); setFile(null); setPages([]); setSelected(new Set()); setError(""); setDirty(false); setPreview(null); }
   function toggle(number: number) { setSelected((previous) => { const next = new Set(previous); if (next.has(number)) next.delete(number); else next.add(number); return next; }); }
   const extension = FORMATS.find((item) => item.value === resultFormat)!.extension;
   async function downloadZip() {

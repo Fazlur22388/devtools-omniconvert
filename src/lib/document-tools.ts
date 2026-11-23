@@ -43,7 +43,7 @@ async function openPdf(file: File, signal: AbortSignal) {
   if (!pdfjs) throw new Error("Open this tool in your browser to process PDFs.");
   const data = new Uint8Array(await file.arrayBuffer());
   signal.throwIfAborted();
-  const loadingTask = pdfjs.getDocument({ data, isEvalSupported: false });
+  const loadingTask = pdfjs.getDocument({ data });
   const abort = () => { void loadingTask.destroy(); };
   signal.addEventListener("abort", abort, { once: true });
   try {
@@ -53,7 +53,7 @@ async function openPdf(file: File, signal: AbortSignal) {
       document,
       async close() {
         signal.removeEventListener("abort", abort);
-        await document.destroy();
+        await loadingTask.destroy();
       },
     };
   } catch (error) {
@@ -207,7 +207,7 @@ export async function optimizePdf(file: File, options: OptimizeOptions, task: Ta
         try {
           const context = canvas.getContext("2d");
           if (!context) throw new Error("Your browser could not prepare this page.");
-          const render = page.render({ canvasContext: context, viewport, background: "rgb(255,255,255)" });
+          const render = page.render({ canvas, viewport, background: "rgb(255,255,255)" });
           const cancelRender = () => render.cancel();
           task.signal.addEventListener("abort", cancelRender, { once: true });
           try { await render.promise; }
